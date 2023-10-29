@@ -10,8 +10,8 @@
         "topic.prefix": "AdvWorks", 
         "table.include.list": "HumanResources.Employee", 
         "schema.history.internal.kafka.bootstrap.servers": "kafka:9092", 
-        "schema.history.internal.kafka.topic": "AdventureWorks2019.HumanResources" 
-        "database.ssl.truststore": "path/to/trust-store" 
+        "schema.history.internal.kafka.topic": "AdventureWorks2019.HumanResources", 
+        "database.ssl.truststore": "path/to/trust-store" ,
         "database.ssl.truststore.password": "password-for-trust-store" 
     }
 }
