@@ -1,0 +1,129 @@
+version: "3.0"
+
+networks:
+  cdc-network:
+    driver: bridge
+
+services:
+#  postgres:
+#    container_name: postgres
+#    image: postgres:latest
+#    environment:
+#      - POSTGRES_USER=${POSTGRES_USER}
+#      - POSTGRES_PASSWORD=${POSTGRES_PW}
+#      - POSTGRES_DB=${POSTGRES_DB} #optional (specify default database instead of $POSTGRES_DB)
+#    ports:
+#      - "5432:5432"
+#    restart: always
+
+#  pgadmin:
+#    container_name: pgadmin
+#    image: dpage/pgadmin4:latest
+#    environment:
+#      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_MAIL}
+#      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PW}
+#    ports:
+#      - "5050:80"
+#    restart: always
+  
+  # Zookeeper, single node
+  zookeeper:
+    image: debezium/zookeeper:latest
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+      - "2888:2888"
+      - "3888:3888"
+    extra_hosts:
+      - "localhost:127.0.0.1"
+    networks:
+      - cdc-network
+
+
+   # kafka multi node     
+  kafka1:
+    image: debezium/kafka:latest
+    container_name: kafka1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    links:
+      - zookeeper
+    depends_on:
+      - zookeeper
+    environment:
+      #KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    extra_hosts:
+      - "localhost:127.0.0.1"
+    networks:
+      - cdc-network
+
+#  kafka2:
+#    image: debezium/kafka:latest
+#    restart: "no"
+#    links:
+#      - zookeeper
+#    ports:
+#      - 9093:9093
+#      - 29093:29093
+#    environment:
+#      KAFKA_BROKER_ID: 2
+#      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+#      KAFKA_LISTENERS: INTERNAL://:29093,EXTERNAL://:9093
+#      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:29093,EXTERNAL://localhost:9093
+#      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+#      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+     
+  # debezium connector
+#  connect:
+#    image: debezium/connect:latest
+#    container_name: connect
+#    ports:
+#      - 8083:8083
+#    environment:
+#      CONFIG_STORAGE_TOPIC: my_connect_configs
+#      OFFSET_STORAGE_TOPIC: my_connect_offsets
+#      STATUS_STORAGE_TOPIC: my_connect_statuses
+#      BOOTSTRAP_SERVERS: kafka1:29092
+#    links:
+#      - zookeeper
+#    depends_on:
+#      - kafka1
+#      - kafka2
+#      - zookeeper
+
+#  dbezium-ui:
+#    image: debezium/debezium-ui:latest
+#    container_name: dbezium-UI
+#    ports:
+#      - 8080:8080
+#    environment:
+#      - KAFKA_CONNECT_URIS=http://connect:8083
+#    links:
+#      - connect
+#    depends_on:
+#      - connect
+#      - kafka1
+#      - kafka2
+#      - zookeeper
+
+  #kafdrop for topic/msg visualization
+#  kafdrop:
+#    image: obsidiandynamics/kafdrop
+#    container_name: kafdrop
+#    restart: "no"
+#    environment:
+#      KAFKA_BROKERCONNECT: "kafka1:29092,kafka2:29093"
+#      JVM_OPTS: "-Xms16M -Xmx512M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
+#    ports:
+#      - 9000:9000
+#    depends_on:
+#      - kafka1
+#      - kafka2
+

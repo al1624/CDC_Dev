@@ -1,111 +1,79 @@
+version: '2'
 services:
-  postgres:
-    container_name: postgres
-    image: postgres:latest
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PW}
-      - POSTGRES_DB=${POSTGRES_DB} #optional (specify default database instead of $POSTGRES_DB)
-    ports:
-      - "5432:5432"
-    restart: always
-
-  pgadmin:
-    container_name: pgadmin
-    image: dpage/pgadmin4:latest
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_MAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PW}
-    ports:
-      - "5050:80"
-    restart: always
   
-  # Zookeeper, single node
+  # Zookeeper
   zookeeper:
-    image: wurstmeister/zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+    image: quay.io/debezium/zookeeper:${DEBEZIUM_VERSION}
     ports:
-      - 2181:2181
-      - 2888:2888
-      - 3888:3888
-
-   # kafka multi node     
-  kafka1:
-    image: wurstmeister/kafka:latest
-    restart: "no"
+     - 2181:2181
+     - 2888:2888
+     - 3888:3888
+  
+  # Kafka
+  kafka:
+    image: quay.io/debezium/kafka:${DEBEZIUM_VERSION}
+    ports:
+     - 9092:9092
+     - 29093:29093
     links:
-      - zookeeper
-    ports:
-      - 9092:9092
+     - zookeeper
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: INTERNAL://:29092,EXTERNAL://:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:29092,EXTERNAL://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      #https://github.com/wurstmeister/kafka-docker/issues/553
+     - ZOOKEEPER_CONNECT=zookeeper:2181
+#     - BROKER_ID= 1
+#     - LISTENERS= INTERNAL://:9093,EXTERNAL://:29093
+#     - ADVERTISED_LISTENERS= INTERNAL://kafka:9093,EXTERNAL://localhost:29093
 
-  kafka2:
-    image: wurstmeister/kafka:latest
-    restart: "no"
-    links:
-      - zookeeper
-    ports:
-      - 9093:9093
-    environment:
-      KAFKA_BROKER_ID: 2
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: INTERNAL://:29093,EXTERNAL://:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:29093,EXTERNAL://localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      #https://github.com/wurstmeister/kafka-docker/issues/553
-
-#kafdrop for topic/msg visualization
-  kafdrop:
-    image: obsidiandynamics/kafdrop
-    restart: "no"
-    environment:
-      KAFKA_BROKERCONNECT: "kafka1:29092,kafka2:29093"
-      JVM_OPTS: "-Xms16M -Xmx512M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
-    ports:
-      - 9000:9000
-    depends_on:
-      - kafka1
-      - kafka2
-      
   # debezium connector
   connect:
-    image: debezium/connect:latest
+    image: quay.io/debezium/connect:${DEBEZIUM_VERSION}
     ports:
-      - 8083:8083
-    environment:
-      CONFIG_STORAGE_TOPIC: my_connect_configs
-      OFFSET_STORAGE_TOPIC: my_connect_offsets
-      STATUS_STORAGE_TOPIC: my_connect_statuses
-      BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29093
+     - 8083:8083
     links:
-      - zookeeper
-      - postgres
-    depends_on:
-      - kafka1
-      - kafka2
-      - zookeeper
-      - postgres  
+     - kafka
 
-  dbezium-ui:
-    image: debezium/debezium-ui:latest
-    ports:
-      - 8080:8080
     environment:
-      - KAFKA_CONNECT_URIS=http://connect:8083
-    links:
-      - connect
-    depends_on:
-      - connect
-      - kafka1
-      - kafka2
-      - zookeeper
+     - BOOTSTRAP_SERVERS=kafka:9092
+     - GROUP_ID=1
+     - CONFIG_STORAGE_TOPIC=my_connect_configs
+     - OFFSET_STORAGE_TOPIC=my_connect_offsets
+     - STATUS_STORAGE_TOPIC=my_connect_statuses
+
+  # Debezium UI
+#  dbezium-ui:
+#    image: debezium/debezium-ui:${DEBEZIUM_VERSION}
+#    container_name: dbezium-UI
+#    ports:
+#      - 8080:8080
+#    environment:
+#      - KAFKA_CONNECT_URIS=http://connect:8083
+#    links:
+#      - connect
+#    depends_on:
+#      - connect
+#      - kafka
+#      - zookeeper
+
+  #kafdrop for topic/msg visualization
+#  kafdrop:
+#    image: obsidiandynamics/kafdrop
+#    container_name: kafdrop
+#    restart: "no"
+#    environment:
+#      KAFKA_BROKERCONNECT: "kafka1:29092,kafka2:29093"
+#      JVM_OPTS: "-Xms16M -Xmx512M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication -noverify"
+#    ports:
+#      - 9000:9000
+#    depends_on:
+#      - kafka1
+#      - kafka2
+
+
+#  sqlserver:
+#    image: mcr.microsoft.com/mssql/server:2019-latest
+#    ports:
+#     - 1433:1433
+#    environment:
+#     - ACCEPT_EULA=Y
+#     - MSSQL_PID=Standard
+#     - SA_PASSWORD=Password!
+#     - MSSQL_AGENT_ENABLED=true
